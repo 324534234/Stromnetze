@@ -1,16 +1,16 @@
 import pandas as pd
 import pandapower as pp
 import pandapower.plotting as plot
+from pandapower.timeseries import DFData, OutputWriter, run_timeseries
+from pandapower.control import ConstControl
 
 file_load = r"C:\Users\Noah\Desktop\EE TH Köln\Semester 2\Stromnetze\Daten\OneDrive_1_14.6.2026\Lastprofile.xlsx"
 file_lines = r"C:\Users\Noah\Desktop\EE TH Köln\Semester 2\Stromnetze\Daten\Stromnetze_Auslegungsdaten - Kopie.xlsx"
 
-Verbrauch_Haushalt = pd.read_excel(file_load, header=[0,1], index_col=[0,1],skiprows=1)
+
 lines = pd.read_excel(file_lines, index_col=0)
 lines = lines.rename(columns={"Länge": "Laenge"})
 
-#print(Verbrauch_Haushalt)
-#print(lines)
 #create modell
 n = pp.create_empty_network()
 #create buses
@@ -50,23 +50,91 @@ def Line_erstellen(df, Kabelnummer: int):
                        name=f"Kabel_{Kabelnummer}_{i}")
     return n
 
+
 pp.create_ext_grid(n, bus=b1, vm_pu=1.02, name="grid_connection")
 for l, group in lines.groupby(level=0):
     extraction(group, l)
     Line_erstellen(group,l)
-#Lastprofile aufbauen
-lastprofile = {"Haushalt_1":Verbrauch_Haushalt[1],
-                  "Haushalt_2":Verbrauch_Haushalt[2],
-                  "Haushalt_3":Verbrauch_Haushalt[3],
-                  "Haushalt_4":Verbrauch_Haushalt[4]
-}
-print(lastprofile)
-#Lasten einfügen an die Buses
 
-pp.create_load(n,bus=11,p_mw=Verbrauch_Haushalt[1])
+#Umbennen der Columnsudn anschließend einfügen an die Buses
+lastprofile = {
+    1:"Haushalt_1",
+    2:"Haushalt_2",
+    3:"Haushalt_3",
+    4:"Haushalt_4"
+}
+# Mapping von Haushaltsnamen auf Busindizes.
+load_bus_mapping = {
+    "Haushalt_1": 6,
+    "Haushalt_2": 7,
+    "Haushalt_3": 10,
+    "Haushalt_4": 11,
+}
+
+Verbrauch_Haushalt = pd.read_excel(file_load, index_col=[0,1], skiprows=1)
+#Spaltennamen anpassen
+Verbrauch_Haushalt= Verbrauch_Haushalt.rename(columns=lastprofile)
+print(Verbrauch_Haushalt)
+
+#Load für alle Lastprofile erstellen an die entsprechenden Buses
+for key, value in load_bus_mapping.items():
+    pp.create_load(n, bus=value, p_mw=0.1, q_mvar=0.0, name=key)
+
+#
+def create_data_source(n):
+    profiles = Verbrauch_Haushalt
+    ds = DFData(profiles)
+        #wir loopen über alle Load_buses und gehen jeden durch, falls der Name von einem Bus übereinstimmt mit load_bus_mapping
+        #dann wird ein controller erstellt
+    for i, load in n.load.iterrows():
+        if load['name'] in profiles.columns:
+            create_controller_load(n,ds,load['name'],i)
+    return  n
+
+#Blindleistung berechnen
+for col in Verbrauch_Haushalt.columns:
+    Verbrauch_Haushalt[f"Blindleistung_{col}"] =Verbrauch_Haushalt[col]*(1/0.95**2 -1)**0.5
+    print(Verbrauch_Haushalt)
+
+#q[i] = p[i] * (1/cosphi[i]**2 -1)**0.5
+
+
+def create_controller_load(n, df, name,i):
+    #einen Controller für die Variable p_mw
+    ConstControl(n, 
+                element='load', 
+                variable='p_mw', 
+                element_index=[i],
+                 data_source=df, 
+                 profile_name=[name],)
+    #einen Controller für die Q_mvar - muss noch weiter angepasst werden
+    ConstControl(n,
+                 element='load',
+                 variable='q_mvar',
+                 element_index=[i],
+                 data_source=df,
+                 profile_name=[name],
+                 )
+    return n
+
+'''
+def create_controller_gen(net,df,x, name, MWp,Scheinleistung):
+    pp.create_sgen(net, bus=x,p_mw= MWp, q_mvar= Scheinleistung )
+    pp.ConstControl(net, element='sgen', variable='p_mw', element_index=[0],
+                 data_source=df[{name}], profile_name=[f"{name}"])
+
+'''
+
+
+# Erstelle ein Load-Element pro Haushalt, das später mit dem Zeitreihenprofil gesteuert wird.
+
+n = create_data_source(n)
+pp.runpp(n)
+run_timeseries(n,range(len(Verbrauch_Haushalt.index)))
+
 print(n.bus)
 #print(n.trafo)
 print(n.line)
 print(n.load)
+print(n.controller)
 
-#pp.runpp(n)
