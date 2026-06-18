@@ -21,7 +21,7 @@ trafo1 = pp.create_transformer(n, hv_bus=b1, lv_bus=b2, std_type="0.4 MVA 20/0.4
 #Abhaenge LV Netz von links nach rechts aufbauen
 buses = {}
 def extraction(df, Kabelnummer: int):
-    df = df.loc[[Kabelnummer]]
+    #df = df.loc[[Kabelnummer]]
     for i in range(len(df)):
         buses[f"Bus_LV{Kabelnummer}.{i}"] = pp.create_bus(n, name=f"busLV{Kabelnummer}.{i}", vn_kv=0.4, type="n")
     return n
@@ -74,6 +74,20 @@ load_bus_mapping = {
 Verbrauch_Haushalt = pd.read_excel(file_load, index_col=[0,1], skiprows=1)
 #Spaltennamen anpassen
 Verbrauch_Haushalt= Verbrauch_Haushalt.rename(columns=lastprofile)
+def Daten_Anpassung(df):
+    for col in list(df.columns):
+        df[f"Blindleistung_{col}"] = (
+            df[col] * (1/0.95**2 - 1)**0.5
+        )
+        # kW zu MW
+        df[col] = df[col] / 1000
+        df[f"Blindleistung_{col}"] = (
+            df[f"Blindleistung_{col}"] / 1000
+        )
+
+    return df
+Verbrauch_Haushalt = Daten_Anpassung(df=Verbrauch_Haushalt)
+
 print(Verbrauch_Haushalt)
 
 #Load für alle Lastprofile erstellen an die entsprechenden Buses
@@ -92,9 +106,7 @@ def create_data_source(n):
     return  n
 
 #Blindleistung berechnen
-for col in Verbrauch_Haushalt.columns:
-    Verbrauch_Haushalt[f"Blindleistung_{col}"] =Verbrauch_Haushalt[col]*(1/0.95**2 -1)**0.5
-    print(Verbrauch_Haushalt)
+
 
 #q[i] = p[i] * (1/cosphi[i]**2 -1)**0.5
 
@@ -113,7 +125,7 @@ def create_controller_load(n, df, name,i):
                  variable='q_mvar',
                  element_index=[i],
                  data_source=df,
-                 profile_name=[name],
+                 profile_name=[f"Blindleistung_{name}"],
                  )
     return n
 
@@ -128,9 +140,23 @@ def create_controller_gen(net,df,x, name, MWp,Scheinleistung):
 
 # Erstelle ein Load-Element pro Haushalt, das später mit dem Zeitreihenprofil gesteuert wird.
 
+
+def create_output_writer(n, timesteps, output_dir):
+    ow = OutputWriter(n, timesteps, output_path=output_dir, output_file_type=".xlsx", log_variables=[])
+    # these variables are saved to the harddisk after / during the time series loop
+    ow.log_variable('res_load', 'p_mw')
+    ow.log_variable('res_bus', 'vm_pu')
+    ow.log_variable('res_line', 'loading_percent')
+    ow.log_variable('res_line', 'i_ka')
+    ow.log_variable('res_gen', 'p_mw')
+    ow.log_variable('res_gen', 'q_mvar')
+    return ow
+
+timesteps = range(len(Verbrauch_Haushalt.index))
 n = create_data_source(n)
 pp.runpp(n)
-run_timeseries(n,range(len(Verbrauch_Haushalt.index)))
+ow = create_output_writer(n, timesteps, output_dir="results")
+run_timeseries(n,timesteps)
 
 print(n.bus)
 #print(n.trafo)
