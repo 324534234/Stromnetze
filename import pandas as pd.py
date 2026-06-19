@@ -158,9 +158,63 @@ pp.runpp(n)
 ow = create_output_writer(n, timesteps, output_dir="results")
 run_timeseries(n,timesteps)
 
+import matplotlib.pyplot as plt
+import os
+
+x_label = "time step"
+# voltage results
+vm_pu_file = os.path.join(output_dir, "res_bus", "vm_pu.xlsx")
+vm_pu = pd.read_excel(vm_pu_file, index_col=0)
+vm_pu.plot(label="vm_pu")
+plt.xlabel(x_label)
+plt.ylabel("voltage mag. [p.u.]")
+plt.title("Voltage Magnitude")
+plt.grid()
+plt.show()
+
+# line loading results
+ll_file = os.path.join(output_dir, "res_line", "loading_percent.xlsx")
+line_loading = pd.read_excel(ll_file, index_col=0)
+line_loading.plot(label="line_loading")
+plt.xlabel(x_label)
+plt.ylabel("line loading [%]")
+plt.title("Line Loading")
+plt.grid()
+plt.show()
+
+# load results
+load_file = os.path.join(output_dir, "res_load", "p_mw.xlsx")
+load = pd.read_excel(load_file, index_col=0)
+load.plot(label="load")
+plt.xlabel(x_label)
+plt.ylabel("P [MW]")
+plt.grid()
+plt.show()
+
+# generation results [p_mw]
+gen_file = os.path.join(output_dir, "res_gen", "p_mw.xlsx")
+gen = pd.read_excel(gen_file, index_col=0)
+gen.plot(label="gen")
+plt.xlabel(x_label)
+plt.ylabel("P [MW]")
+plt.grid()
+plt.show()
+
+# generation results [q_mvar]
+gen_file = os.path.join(output_dir, "res_gen", "q_mvar.xlsx")
+gen = pd.read_excel(gen_file, index_col=0)
+gen.plot(label="gen")
+plt.xlabel(x_label)
+plt.ylabel("Q [Mvar]")
+plt.grid()
+plt.show()
+
+
+
 print(n.bus)
 #print(n.trafo)
 print(n.line)
 print(n.load)
 print(n.controller)
+
 
