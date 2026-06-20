@@ -71,6 +71,12 @@ load_bus_mapping = {
     "Haushalt_4": 11,
 }
 
+print(n.bus)
+#print(n.trafo)
+print(n.line)
+print(n.load)
+print(n.controller)
+
 Verbrauch_Haushalt = pd.read_excel(file_load, index_col=[0,1], skiprows=1)
 #Spaltennamen anpassen
 Verbrauch_Haushalt= Verbrauch_Haushalt.rename(columns=lastprofile)
@@ -103,6 +109,7 @@ def create_data_source(n):
     for i, load in n.load.iterrows():
         if load['name'] in profiles.columns:
             create_controller_load(n,ds,load['name'],i)
+            #create controller erzeugung
     return  n
 
 #Blindleistung berechnen
@@ -211,10 +218,5 @@ plt.show()
 
 
 
-print(n.bus)
-#print(n.trafo)
-print(n.line)
-print(n.load)
-print(n.controller)
 
 
