@@ -267,25 +267,6 @@ timesteps = range(len(Verbrauch_Haushalt.index))
 n = create_data_source(n)
 pp.runpp(n)
 ow = create_output_writer(n, timesteps, output_dir="results")
-
-df = Verbrauch_Haushalt
-
-# 1) NaN finden
-nan_cols = df.columns[df.isna().any()]
-print("Spalten mit NaN:", list(nan_cols))
-for c in nan_cols:
-    print(f"  {c}: erste NaN bei Zeitschritt {df[c].isna().idxmax()}, "
-          f"Anzahl {df[c].isna().sum()}")
-
-# 2) Was ist konkret an Schritt 394 kaputt?
-row = df.iloc[394]
-print("\nAuffällige Werte @394 (NaN oder |Wert|>0.5 MW):")
-print(row[row.isna() | (row.abs() > 0.5)])
-
-# 3) Ausreißer pro Spalte
-print("\nMax je Profil (MW):")
-print(df.abs().max().sort_values(ascending=False).head(8))
-
 run_timeseries(n, timesteps)
 
 import matplotlib.pyplot as plt
