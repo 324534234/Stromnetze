@@ -250,7 +250,7 @@ def create_controller_gen(net,df,x, name, MWp,Scheinleistung):
 
 
 # Erstelle ein Load-Element pro Haushalt, das später mit dem Zeitreihenprofil gesteuert wird.
-output_dir = "results"
+output_dir = "ohne_Last_results"
 
 def create_output_writer(n, timesteps, output_dir):
     ow = OutputWriter(n, timesteps, output_path=output_dir, output_file_type=".xlsx", log_variables=[])
@@ -265,8 +265,9 @@ def create_output_writer(n, timesteps, output_dir):
 
 timesteps = range(len(Verbrauch_Haushalt.index))
 n = create_data_source(n)
+n.load['in_service'] = False # Ohne Lasten simulieren
 pp.runpp(n)
-ow = create_output_writer(n, timesteps, output_dir="results")
+ow = create_output_writer(n, timesteps, output_dir="ohne_Last_results")
 run_timeseries(n, timesteps)
 
 import matplotlib.pyplot as plt
