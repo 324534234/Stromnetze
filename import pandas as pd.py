@@ -4,11 +4,17 @@ import pandapower.plotting as plot
 from pandapower.timeseries import DFData, OutputWriter, run_timeseries
 from pandapower.control import ConstControl
 from demandlib import bdew #für Standardlastprofile
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import numpy as np            
+import os
 
+#Szenario Möglichekeiten: "status_quo", "alle_pv", "alle_pv_ohne_last"
+
+SZENARIO = "alle_pv_ohne_last" 
 
 file_load = "Lastprofile.xlsx"
 file_lines = "Stromnetze_Auslegungsdaten - Kopie.xlsx"
-
 
 lines = pd.read_excel(file_lines, index_col=0)
 lines = lines.rename(columns={"Länge": "Laenge"})
@@ -80,8 +86,11 @@ for l, group in lines.groupby(level=0):
     for i, row in enumerate(group.itertuples()):
         bus_name = f"busLV{l}.{i}"
         bus_idx = n.bus[n.bus['name'] == bus_name].index[0]
-        bus_info.append({"index": bus_idx, "name": bus_name, "endpunkt": row.Endpunkt})
-print(pd.DataFrame(bus_info))
+        bus_info.append({"index": bus_idx, "name": bus_name, "endpunkt": row.Endpunkt,
+                         "strang": l})  
+bus_info_df = pd.DataFrame(bus_info)  
+print(bus_info_df)
+
 
 
 #Umbennen der Columnsudn anschließend einfügen an die Buses
@@ -113,9 +122,14 @@ load_bus_mapping = {
     "Handwerkladen": 8  
 }
 
-pv_mapping = {
-    "pv_Haushalt_1": {"file": "PV/ninja_pv_BHS35.xlsx", "bus": 3},
+pv_istzustand = {
     "pv_Haushalt_2": {"file": "PV/ninja_pv_istzustand_BHS36.xlsx", "bus": 7},
+    "pv_edeka1": {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 15},
+    "pv_Handwerkladen": {"file": "PV/ninja_pv_istzustand_BHS36a.xlsx", "bus": 8},
+}
+ 
+pv_geplant = {
+    "pv_Haushalt_1": {"file": "PV/ninja_pv_BHS35.xlsx", "bus": 3},
     "pv_Haushalt_3_ost": {"file": "PV/ninja_pv_BHS27a_Ost.xlsx", "bus": 23},
     "pv_Haushalt_3_west": {"file": "PV/ninja_pv_BHS27a_West.xlsx", "bus": 23},
     "pv_Haushalt_4_süd": {"file": "PV/ninja_pv_BHS25_süd.xlsx", "bus": 18},
@@ -124,12 +138,22 @@ pv_mapping = {
     "pv_baecker_west": {"file": "PV/ninja_pv_BHS27_West.xlsx", "bus": 22},
     "pv_restaurant_nord": {"file": "PV/ninja_pv_BHS38_Nord.xlsx", "bus": 9},
     "pv_restaurant_süd": {"file": "PV/ninja_pv_BHS38_Süd.xlsx", "bus": 9},
-    "pv_edeka1": {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 15},
     "pv_doner_ost": {"file": "PV/ninja_pv_BHS32_Ost.xlsx", "bus": 5},
     "pv_doner_west": {"file": "PV/ninja_pv_BHS32_West.xlsx", "bus": 5},
     "pv_Elektroladen": {"file": "PV/ninja_pv_BHS34.xlsx", "bus": 6},
-    "pv_Handwerkladen": {"file": "PV/ninja_pv_istzustand_BHS36a.xlsx", "bus": 8}
 }
+ 
+if SZENARIO == "status_quo":
+    pv_mapping = pv_istzustand
+    lasten_aktiv = True
+elif SZENARIO == "alle_pv":
+    pv_mapping = {**pv_istzustand, **pv_geplant}
+    lasten_aktiv = True
+elif SZENARIO == "alle_pv_ohne_last":
+    pv_mapping = {**pv_istzustand, **pv_geplant}
+    lasten_aktiv = False
+
+
 
 print(n.bus)
 #print(n.trafo)
@@ -240,17 +264,10 @@ def create_data_source(n):
 
     return  n
 
-'''
-def create_controller_gen(net,df,x, name, MWp,Scheinleistung):
-    pp.create_sgen(net, bus=x,p_mw= MWp, q_mvar= Scheinleistung )
-    pp.ConstControl(net, element='sgen', variable='p_mw', element_index=[0],
-                 data_source=df[{name}], profile_name=[f"{name}"])
-
-'''
-
 
 # Erstelle ein Load-Element pro Haushalt, das später mit dem Zeitreihenprofil gesteuert wird.
-output_dir = "results"
+output_dir = f"results_{SZENARIO}" 
+os.makedirs(output_dir, exist_ok=True) 
 
 def create_output_writer(n, timesteps, output_dir):
     ow = OutputWriter(n, timesteps, output_path=output_dir, output_file_type=".xlsx", log_variables=[])
@@ -261,19 +278,18 @@ def create_output_writer(n, timesteps, output_dir):
     ow.log_variable('res_line', 'i_ka')
     ow.log_variable('res_sgen', 'p_mw')
     ow.log_variable('res_sgen', 'q_mvar')
+    ow.log_variable('res_trafo', 'loading_percent')  
+    ow.log_variable('res_trafo', 'p_hv_mw') 
     return ow
 
 timesteps = range(len(Verbrauch_Haushalt.index))
 n = create_data_source(n)
-#n.load['in_service'] = False # Ohne Lasten simulieren
 pp.runpp(n)
-ow = create_output_writer(n, timesteps, output_dir="results")
+ow = create_output_writer(n, timesteps, output_dir=output_dir)
 run_timeseries(n, timesteps)
 
-import matplotlib.pyplot as plt
-import os
-
 x_label = "time step"
+zeitindex = pd.date_range("2021-01-01", periods=8760, freq="h")
 # voltage results
 vm_pu_file = os.path.join(output_dir, "res_bus", "vm_pu.xlsx")
 vm_pu = pd.read_excel(vm_pu_file, index_col=0)
@@ -320,8 +336,3 @@ plt.xlabel(x_label)
 plt.ylabel("Q [Mvar]")
 plt.grid()
 plt.show()
-
-
-
-
-
