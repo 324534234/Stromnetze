@@ -284,6 +284,9 @@ def create_output_writer(n, timesteps, output_dir):
 
 timesteps = range(len(Verbrauch_Haushalt.index))
 n = create_data_source(n)
+if not lasten_aktiv:
+    n.load['in_service'] = False
+
 pp.runpp(n)
 ow = create_output_writer(n, timesteps, output_dir=output_dir)
 run_timeseries(n, timesteps)
