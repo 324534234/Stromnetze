@@ -9,9 +9,9 @@ import matplotlib.dates as mdates
 import numpy as np            
 import os
 
-#Szenario Möglichekeiten: "status_quo", "alle_pv", "alle_pv_ohne_last", "no_pv"
+#Szenario Möglichekeiten: "status_quo", "alle_pv", "alle_pv_ohne_last", "no_pv", "alle_pv_60"
 
-SZENARIO = "no_pv" 
+SZENARIO = "alle_pv_60" 
 
 file_load = "Lastprofile.xlsx"
 file_lines = "Stromnetze_Auslegungsdaten - Kopie.xlsx"
@@ -22,12 +22,12 @@ lines = lines.rename(columns={"Länge": "Laenge"})
 #Erstellen der Standardlastprofile
 slp = bdew.ElecSlp(2021)
 
-baecker_slp = slp.get_scaled_power_profiles({"g5": 25000}).resample("h").sum()
-restaurant_slp = slp.get_scaled_power_profiles({"g2": 45000}).resample("h").sum()
-edeka_slp = slp.get_scaled_power_profiles({"g4": 130000}).resample("h").sum()
-doner_slp = slp.get_scaled_power_profiles({"g4": 15000}).resample("h").sum()
-Elektroladen_slp = slp.get_scaled_power_profiles({"g4": 15000}).resample("h").sum()
-Handwerkladen_slp = slp.get_scaled_power_profiles({"g3": 105000}).resample("h").sum()
+baecker_slp = slp.get_scaled_power_profiles({"g5": 25000}).resample("h").mean()
+restaurant_slp = slp.get_scaled_power_profiles({"g2": 45000}).resample("h").mean()
+edeka_slp = slp.get_scaled_power_profiles({"g4": 130000}).resample("h").mean()
+doner_slp = slp.get_scaled_power_profiles({"g4": 15000}).resample("h").mean()
+Elektroladen_slp = slp.get_scaled_power_profiles({"g4": 15000}).resample("h").mean()
+Handwerkladen_slp = slp.get_scaled_power_profiles({"g3": 105000}).resample("h").mean()
 
 #create modell
 n = pp.create_empty_network()
@@ -75,7 +75,7 @@ for l, group in lines.groupby(level=0):
     extraction(group, l)
 
 abzweig_start = {
-    91: buses["Bus_LV9.0"],  
+    111: buses["Bus_LV11.0"],  
 }
  
 for l, group in lines.groupby(level=0):
@@ -105,37 +105,37 @@ lastprofile = {
 
 # Mapping von Haushaltsnamen auf Busindizes.
 load_bus_mapping = {
-    "Haushalt_1": 3,
-    "Haushalt_2": 7,
-    "Haushalt_3": 23,
-    "Haushalt_4": 18,
-    "Haushalt_5": 19,
-    "Haushalt_6": 20,
-    "baecker": 22,
-    "restaurant": 9,
-    "edeka1": 15,
-    "edeka2":16,
-    "edeka3": 14, 
-    "edeka4": 12, 
-    "doner": 5,
-    "Elektroladen": 6,
-    "Handwerkladen": 8  
+    "Haushalt_1": 3,      # BHS 35       
+    "Haushalt_2": 7,      # BHS 36      
+    "Haushalt_3": 25,     # BHS 27a     
+    "Haushalt_4": 19,     # BHS 25    
+    "Haushalt_5": 20,     # BHS 23       
+    "Haushalt_6": 21,     # BHS 21      
+    "baecker": 24,        # BHS 27     
+    "restaurant": 9,      # BHS 38       
+    "edeka1": 14,         # EDEKA Kabel 7 
+    "edeka2": 15,         # EDEKA Kabel 8 
+    "edeka3": 13,         # Sendemast    
+    "edeka4": 11,         # Zählersäule  
+    "doner": 5,           # BHS 32       
+    "Elektroladen": 6,    # BHS 34       
+    "Handwerkladen": 8,   # BHS 36a      
 }
 
 pv_istzustand = {
     "pv_Haushalt_2": {"file": "PV/ninja_pv_istzustand_BHS36.xlsx", "bus": 7},
-    "pv_edeka1": {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 15},
+    "pv_edeka1": {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 14},
     "pv_Handwerkladen": {"file": "PV/ninja_pv_istzustand_BHS36a.xlsx", "bus": 8},
 }
  
 pv_geplant = {
     "pv_Haushalt_1": {"file": "PV/ninja_pv_BHS35.xlsx", "bus": 3},
-    "pv_Haushalt_3_ost": {"file": "PV/ninja_pv_BHS27a_Ost.xlsx", "bus": 23},
-    "pv_Haushalt_3_west": {"file": "PV/ninja_pv_BHS27a_West.xlsx", "bus": 23},
-    "pv_Haushalt_4_süd": {"file": "PV/ninja_pv_BHS25_süd.xlsx", "bus": 18},
-    "pv_Haushalt_4_nord": {"file": "PV/ninja_pv_BHS25_nord.xlsx", "bus": 18},
-    "pv_baecker_ost": {"file": "PV/ninja_pv_BHS27_Ost.xlsx", "bus": 22},
-    "pv_baecker_west": {"file": "PV/ninja_pv_BHS27_West.xlsx", "bus": 22},
+    "pv_Haushalt_3_ost": {"file": "PV/ninja_pv_BHS27a_Ost.xlsx", "bus": 25},
+    "pv_Haushalt_3_west": {"file": "PV/ninja_pv_BHS27a_West.xlsx", "bus": 25},
+    "pv_Haushalt_4_süd": {"file": "PV/ninja_pv_BHS25_süd.xlsx", "bus": 19},
+    "pv_Haushalt_4_nord": {"file": "PV/ninja_pv_BHS25_nord.xlsx", "bus": 19},
+    "pv_baecker_ost": {"file": "PV/ninja_pv_BHS27_Ost.xlsx", "bus": 24},
+    "pv_baecker_west": {"file": "PV/ninja_pv_BHS27_West.xlsx", "bus": 24},
     "pv_restaurant_nord": {"file": "PV/ninja_pv_BHS38_Nord.xlsx", "bus": 9},
     "pv_restaurant_süd": {"file": "PV/ninja_pv_BHS38_Süd.xlsx", "bus": 9},
     "pv_doner_ost": {"file": "PV/ninja_pv_BHS32_Ost.xlsx", "bus": 5},
@@ -146,15 +146,23 @@ pv_geplant = {
 if SZENARIO == "status_quo":
     pv_mapping = pv_istzustand
     lasten_aktiv = True
+    pv_faktor = 1.0
 elif SZENARIO == "alle_pv":
     pv_mapping = {**pv_istzustand, **pv_geplant}
     lasten_aktiv = True
+    pv_faktor = 1.0
 elif SZENARIO == "alle_pv_ohne_last":
     pv_mapping = {**pv_istzustand, **pv_geplant}
     lasten_aktiv = False
-elif SZENARIO == "no_pv":
-    pv_mapping = {}
+    pv_faktor = 1.0
+elif SZENARIO == "alle_pv_60":
+    pv_mapping = {**pv_istzustand, **pv_geplant}
     lasten_aktiv = True
+    pv_faktor = 0.6
+elif SZENARIO == "alle_pv_60":
+    pv_mapping = {**pv_istzustand, **pv_geplant}
+    lasten_aktiv = True
+    pv_faktor = 0.6
     
 
 
@@ -185,7 +193,7 @@ for name, info in pv_mapping.items():
     if werte.dtype == object:
         werte = werte.astype(str).str.replace(",", ".", regex=False)
     werte = pd.to_numeric(werte, errors="coerce")
-    Verbrauch_Haushalt[name] = werte.values[:8760]
+    Verbrauch_Haushalt[name] = werte.values[:8760] * pv_faktor  
 
 def Daten_Anpassung(df):
     for col in list(df.columns):
