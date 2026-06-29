@@ -9,9 +9,9 @@ import matplotlib.dates as mdates
 import numpy as np            
 import os
 
-#Szenario Möglichekeiten: "status_quo", "alle_pv", "alle_pv_ohne_last"
+#Szenario Möglichekeiten: "status_quo", "alle_pv", "alle_pv_ohne_last", "no_pv"
 
-SZENARIO = "alle_pv_ohne_last" 
+SZENARIO = "no_pv" 
 
 file_load = "Lastprofile.xlsx"
 file_lines = "Stromnetze_Auslegungsdaten - Kopie.xlsx"
@@ -152,7 +152,10 @@ elif SZENARIO == "alle_pv":
 elif SZENARIO == "alle_pv_ohne_last":
     pv_mapping = {**pv_istzustand, **pv_geplant}
     lasten_aktiv = False
-
+elif SZENARIO == "no_pv":
+    pv_mapping = {}
+    lasten_aktiv = True
+    
 
 
 print(n.bus)
