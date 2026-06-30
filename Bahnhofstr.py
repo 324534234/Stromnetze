@@ -9,9 +9,9 @@ import matplotlib.dates as mdates
 import numpy as np            
 import os
 
-#Szenario Möglichekeiten: "status_quo", "alle_pv", "alle_pv_ohne_last", "no_pv", "alle_pv_60"
+#Szenario Möglichekeiten: "status_quo", "alle_pv_mit_last", "alle_pv_ohne_last", "60_pv_ohne_last", 60_pv_mit_last
 
-SZENARIO = "alle_pv_60" 
+SZENARIO = "60_pv_mit_last" 
 
 file_load = "Lastprofile.xlsx"
 file_lines = "Stromnetze_Auslegungsdaten - Kopie.xlsx"
@@ -69,7 +69,7 @@ def Line_erstellen(df, Kabelnummer: int):
     return n
 
 
-pp.create_ext_grid(n, bus=b1, vm_pu=1.02, name="grid_connection")
+pp.create_ext_grid(n, bus=b1, vm_pu=1.00, name="grid_connection")
 
 for l, group in lines.groupby(level=0):
     extraction(group, l)
@@ -113,19 +113,22 @@ load_bus_mapping = {
     "Haushalt_6": 21,     # BHS 21      
     "baecker": 24,        # BHS 27     
     "restaurant": 9,      # BHS 38       
-    "edeka1": 14,         # EDEKA Kabel 7 
-    "edeka2": 15,         # EDEKA Kabel 8 
-    "edeka3": 13,         # Sendemast    
-    "edeka4": 11,         # Zählersäule  
+    "edeka1": 14,         # EDEKA 
+    "edeka2": 15,         # EDEKA  
+    "edeka3": 16,         # EDEKA    
+    "edeka4": 17,         # EDEKA  
     "doner": 5,           # BHS 32       
     "Elektroladen": 6,    # BHS 34       
     "Handwerkladen": 8,   # BHS 36a      
 }
 
 pv_istzustand = {
-    "pv_Haushalt_2": {"file": "PV/ninja_pv_istzustand_BHS36.xlsx", "bus": 7},
-    "pv_edeka1": {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 14},
-    "pv_Handwerkladen": {"file": "PV/ninja_pv_istzustand_BHS36a.xlsx", "bus": 8},
+    "pv_Haushalt_2":      {"file": "PV/ninja_pv_istzustand_BHS36.xlsx",    "bus": 7},
+    "pv_edeka1":          {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 14},
+    "pv_edeka2":          {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 15},
+    "pv_edeka3":          {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 16},
+    "pv_edeka4":          {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 17},
+    "pv_Handwerkladen":   {"file": "PV/ninja_pv_istzustand_BHS36a.xlsx",   "bus": 8},
 }
  
 pv_geplant = {
@@ -147,7 +150,7 @@ if SZENARIO == "status_quo":
     pv_mapping = pv_istzustand
     lasten_aktiv = True
     pv_faktor = 1.0
-elif SZENARIO == "alle_pv":
+elif SZENARIO == "alle_pv_mit_last":
     pv_mapping = {**pv_istzustand, **pv_geplant}
     lasten_aktiv = True
     pv_faktor = 1.0
@@ -155,11 +158,11 @@ elif SZENARIO == "alle_pv_ohne_last":
     pv_mapping = {**pv_istzustand, **pv_geplant}
     lasten_aktiv = False
     pv_faktor = 1.0
-elif SZENARIO == "alle_pv_60":
+elif SZENARIO == "60_pv_ohne_last":
     pv_mapping = {**pv_istzustand, **pv_geplant}
-    lasten_aktiv = True
+    lasten_aktiv = False
     pv_faktor = 0.6
-elif SZENARIO == "alle_pv_60":
+elif SZENARIO == "60_pv_mit_last":
     pv_mapping = {**pv_istzustand, **pv_geplant}
     lasten_aktiv = True
     pv_faktor = 0.6
@@ -193,6 +196,11 @@ for name, info in pv_mapping.items():
     if werte.dtype == object:
         werte = werte.astype(str).str.replace(",", ".", regex=False)
     werte = pd.to_numeric(werte, errors="coerce")
+
+    # Edeka-PV gleichmäßig auf 4 Stränge aufteilen
+    if name.startswith("pv_edeka"):
+        werte = werte / 4
+
     Verbrauch_Haushalt[name] = werte.values[:8760] * pv_faktor  
 
 def Daten_Anpassung(df):
