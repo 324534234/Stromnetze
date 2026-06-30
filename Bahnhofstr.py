@@ -9,9 +9,7 @@ import matplotlib.dates as mdates
 import numpy as np            
 import os
 
-#Szenario Möglichekeiten: "status_quo", "alle_pv_mit_last", "alle_pv_ohne_last", "60_pv_ohne_last", 60_pv_mit_last
 
-SZENARIO = "60_pv_mit_last" 
 
 file_load = "Lastprofile.xlsx"
 file_lines = "Stromnetze_Auslegungsdaten - Kopie.xlsx"
@@ -67,6 +65,8 @@ def Line_erstellen(df, Kabelnummer: int):
                        std_type=typ, #Kabeltyp muss noch definiert werden
                        name=f"Kabel_{Kabelnummer}_{i}")
     return n
+
+
 
 
 pp.create_ext_grid(n, bus=b1, vm_pu=1.00, name="grid_connection")
@@ -146,27 +146,6 @@ pv_geplant = {
     "pv_Elektroladen": {"file": "PV/ninja_pv_BHS34.xlsx", "bus": 6},
 }
  
-if SZENARIO == "status_quo":
-    pv_mapping = pv_istzustand
-    lasten_aktiv = True
-    pv_faktor = 1.0
-elif SZENARIO == "alle_pv_mit_last":
-    pv_mapping = {**pv_istzustand, **pv_geplant}
-    lasten_aktiv = True
-    pv_faktor = 1.0
-elif SZENARIO == "alle_pv_ohne_last":
-    pv_mapping = {**pv_istzustand, **pv_geplant}
-    lasten_aktiv = False
-    pv_faktor = 1.0
-elif SZENARIO == "60_pv_ohne_last":
-    pv_mapping = {**pv_istzustand, **pv_geplant}
-    lasten_aktiv = False
-    pv_faktor = 0.6
-elif SZENARIO == "60_pv_mit_last":
-    pv_mapping = {**pv_istzustand, **pv_geplant}
-    lasten_aktiv = True
-    pv_faktor = 0.6
-    
 
 
 print(n.bus)
@@ -190,19 +169,8 @@ Verbrauch_Haushalt["doner"] = doner_slp.values
 Verbrauch_Haushalt["Elektroladen"] = Elektroladen_slp.values
 Verbrauch_Haushalt["Handwerkladen"] = Handwerkladen_slp.values
 
-for name, info in pv_mapping.items():
-    pv_df = pd.read_excel(info["file"])
-    werte = pv_df["Erzeugung"]
-    if werte.dtype == object:
-        werte = werte.astype(str).str.replace(",", ".", regex=False)
-    werte = pd.to_numeric(werte, errors="coerce")
-
-    # Edeka-PV gleichmäßig auf 4 Stränge aufteilen
-    if name.startswith("pv_edeka"):
-        werte = werte / 4
-
-    Verbrauch_Haushalt[name] = werte.values[:8760] * pv_faktor  
-
+ 
+#Erstellung eines weiteren Columns bei der Blindleistung
 def Daten_Anpassung(df):
     for col in list(df.columns):
         if col.startswith("pv_"):
@@ -216,22 +184,9 @@ def Daten_Anpassung(df):
     return df
 
 
-Verbrauch_Haushalt = Daten_Anpassung(df=Verbrauch_Haushalt)
+
 
 print(Verbrauch_Haushalt)
-
-#Load für alle Lastprofile erstellen an die entsprechenden Buses
-for key, value in load_bus_mapping.items():
-    pp.create_load(n, bus=value, p_mw=0.1, q_mvar=0.0, name=key)
-
-for name, info in pv_mapping.items():
-    pp.create_sgen(n, bus=info["bus"], p_mw=0.0, q_mvar=0.0, name=name)
-
-
-#Blindleistung berechnen
-
-
-#q[i] = p[i] * (1/cosphi[i]**2 -1)**0.5
 
 
 def create_controller_load(n, df, name,i):
@@ -280,13 +235,10 @@ def create_data_source(n):
     for i, sgen in n.sgen.iterrows():
         if sgen['name'] in profiles.columns:
             create_controller_gen(n, ds, sgen['name'], i)
-
     return  n
 
 
-# Erstelle ein Load-Element pro Haushalt, das später mit dem Zeitreihenprofil gesteuert wird.
-output_dir = f"results_{SZENARIO}" 
-os.makedirs(output_dir, exist_ok=True) 
+
 
 def create_output_writer(n, timesteps, output_dir):
     ow = OutputWriter(n, timesteps, output_path=output_dir, output_file_type=".xlsx", log_variables=[])
@@ -301,60 +253,156 @@ def create_output_writer(n, timesteps, output_dir):
     ow.log_variable('res_trafo', 'p_hv_mw') 
     return ow
 
-timesteps = range(len(Verbrauch_Haushalt.index))
-n = create_data_source(n)
-if not lasten_aktiv:
-    n.load['in_service'] = False
 
-pp.runpp(n)
-ow = create_output_writer(n, timesteps, output_dir=output_dir)
-run_timeseries(n, timesteps)
 
-x_label = "time step"
-zeitindex = pd.date_range("2021-01-01", periods=8760, freq="h")
-# voltage results
-vm_pu_file = os.path.join(output_dir, "res_bus", "vm_pu.xlsx")
-vm_pu = pd.read_excel(vm_pu_file, index_col=0)
-vm_pu.plot(label="vm_pu")
-plt.xlabel(x_label)
-plt.ylabel("voltage mag. [p.u.]")
-plt.title("Voltage Magnitude")
-plt.grid()
-plt.show()
+def plots(output_dir, x_label):
+    # voltage results
+    vm_pu_file = os.path.join(output_dir, "res_bus", "vm_pu.xlsx")
+    vm_pu = pd.read_excel(vm_pu_file, index_col=0)
+    vm_pu.plot(label="vm_pu")
+    plt.xlabel(x_label)
+    plt.ylabel("voltage mag. [p.u.]")
+    plt.title("Voltage Magnitude")
+    plt.grid()
+    plt.show()
 
-# line loading results
-ll_file = os.path.join(output_dir, "res_line", "loading_percent.xlsx")
-line_loading = pd.read_excel(ll_file, index_col=0)
-line_loading.plot(label="line_loading")
-plt.xlabel(x_label)
-plt.ylabel("line loading [%]")
-plt.title("Line Loading")
-plt.grid()
-plt.show()
+    # line loading results
+    ll_file = os.path.join(output_dir, "res_line", "loading_percent.xlsx")
+    line_loading = pd.read_excel(ll_file, index_col=0)
+    line_loading.plot(label="line_loading")
+    plt.xlabel(x_label)
+    plt.ylabel("line loading [%]")
+    plt.title("Line Loading")
+    plt.grid()
+    plt.show()
 
-# load results
-load_file = os.path.join(output_dir, "res_load", "p_mw.xlsx")
-load = pd.read_excel(load_file, index_col=0)
-load.plot(label="load")
-plt.xlabel(x_label)
-plt.ylabel("P [MW]")
-plt.grid()
-plt.show()
+    # load results
+    load_file = os.path.join(output_dir, "res_load", "p_mw.xlsx")
+    load = pd.read_excel(load_file, index_col=0)
+    load.plot(label="load")
+    plt.xlabel(x_label)
+    plt.ylabel("P [MW]")
+    plt.grid()
+    plt.show()
 
-# generation results [p_mw]
-gen_file = os.path.join(output_dir, "res_sgen", "p_mw.xlsx")
-gen = pd.read_excel(gen_file, index_col=0)
-gen.plot(label="gen")
-plt.xlabel(x_label)
-plt.ylabel("P [MW]")
-plt.grid()
-plt.show()
+    # generation results [p_mw]
+    gen_file = os.path.join(output_dir, "res_sgen", "p_mw.xlsx")
+    gen = pd.read_excel(gen_file, index_col=0)
+    gen.plot(label="gen")
+    plt.xlabel(x_label)
+    plt.ylabel("P [MW]")
+    plt.grid()
+    plt.show()
 
-# generation results [q_mvar]
-gen_file = os.path.join(output_dir, "res_sgen", "q_mvar.xlsx")
-gen = pd.read_excel(gen_file, index_col=0)
-gen.plot(label="gen")
-plt.xlabel(x_label)
-plt.ylabel("Q [Mvar]")
-plt.grid()
-plt.show()
+    # generation results [q_mvar]
+    gen_file = os.path.join(output_dir, "res_sgen", "q_mvar.xlsx")
+    gen = pd.read_excel(gen_file, index_col=0)
+    gen.plot(label="gen")
+    plt.xlabel(x_label)
+    plt.ylabel("Q [Mvar]")
+    plt.grid()
+    plt.show()
+
+def colorplot(n):
+    import plotly.express as px
+    df = pd.read_excel(
+        'C:/Users/Noah/.vscode/Stromnetze/results_60_pv_mit_last/res_line/loading_percent.xlsx',
+        index_col=0,
+    )
+
+    # Make the index human-readable (hourly timestamps)
+    df.index = pd.date_range('2021-01-01', periods=len(df), freq='h')
+
+    # Optional: use meaningful line names if available from the network
+    if 'n' in globals() and hasattr(n, 'line') and not n.line.empty:
+        line_names = n.line['name'].tolist()
+        if len(line_names) == len(df.columns):
+            df.columns = line_names
+        else:
+            df.columns = [f'Leitung {col}' for col in df.columns]
+    else:
+        df.columns = [f'Leitung {col}' for col in df.columns]
+
+    fig = px.imshow(
+        df,
+        color_continuous_scale='RdYlGn_r',
+        origin='lower',
+        aspect='auto',
+        labels={'x': 'Leitung', 'y': 'Zeit', 'color': 'Loading [%]'},
+        title='Leitungsbelastung über die Zeit',
+    )
+
+    fig.update_layout(
+        width=1500,
+        height=700,
+        margin=dict(l=20, r=20, t=50, b=20),
+    )
+    fig.update_xaxes(tickangle=-45)
+    fig.show()
+
+#Szenario Möglichekeiten: "status_quo", "alle_pv_mit_last", "alle_pv_ohne_last", "60_pv_ohne_last", 60_pv_mit_last
+Szenario = ["alle_pv_mit_last" ]#, "alle_pv_mit_last", "alle_pv_ohne_last", "60_pv_ohne_last", "60_pv_mit_last"]
+for x in Szenario:
+    SZENARIO= x
+    if SZENARIO == "status_quo":
+        pv_mapping = pv_istzustand
+        lasten_aktiv = True
+        pv_faktor = 1.0
+    elif SZENARIO == "alle_pv_mit_last":
+        pv_mapping = {**pv_istzustand, **pv_geplant}
+        lasten_aktiv = True
+        pv_faktor = 1.0
+    elif SZENARIO == "alle_pv_ohne_last":
+        pv_mapping = {**pv_istzustand, **pv_geplant}
+        lasten_aktiv = False
+        pv_faktor = 1.0
+    elif SZENARIO == "60_pv_ohne_last":
+        pv_mapping = {**pv_istzustand, **pv_geplant}
+        lasten_aktiv = False
+        pv_faktor = 0.6
+    elif SZENARIO == "60_pv_mit_last":
+        pv_mapping = {**pv_istzustand, **pv_geplant}
+        lasten_aktiv = True
+        pv_faktor = 0.6
+    for name, info in pv_mapping.items():
+        pv_df = pd.read_excel(info["file"])
+        werte = pv_df["Erzeugung"]
+    if werte.dtype == object:
+        werte = werte.astype(str).str.replace(",", ".", regex=False)
+        werte = pd.to_numeric(werte, errors="coerce")
+
+    # Edeka-PV gleichmäßig auf 4 Stränge aufteilen
+    if name.startswith("pv_edeka"):
+        werte = werte / 4
+
+        Verbrauch_Haushalt[name] = werte.values[:8760] * pv_faktor 
+
+    
+    #Load für alle Lastprofile erstellen an die entsprechenden Buses
+    for key, value in load_bus_mapping.items():
+        pp.create_load(n, bus=value, p_mw=0.1, q_mvar=0.0, name=key)
+
+    for name, info in pv_mapping.items():
+        pp.create_sgen(n, bus=info["bus"], p_mw=0.0, q_mvar=0.0, name=name)
+
+    Verbrauch_Haushalt = Daten_Anpassung(df=Verbrauch_Haushalt)
+    # Erstelle ein Load-Element pro Haushalt, das später mit dem Zeitreihenprofil gesteuert wird.
+    output_dir = f"results_{SZENARIO}" 
+    os.makedirs(output_dir, exist_ok=True) 
+
+    timesteps = range(len(Verbrauch_Haushalt.index))
+    n = create_data_source(n)
+    if not lasten_aktiv:
+        n.load['in_service'] = False
+
+    pp.runpp(n)
+    ow = create_output_writer(n, timesteps, output_dir=output_dir)
+    run_timeseries(n, timesteps)
+    x_label = "time step"
+    zeitindex = pd.date_range("2021-01-01", periods=8760, freq="h")
+    # plot is a module; call its plot function
+    plots(output_dir= output_dir, x_label=x_label)
+    colorplot(n=n)
+
+    
+    
