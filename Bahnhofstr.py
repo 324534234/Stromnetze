@@ -306,7 +306,7 @@ def plots(output_dir, x_label):
 def colorplot(n):
     import plotly.express as px
     df = pd.read_excel(
-        'C:/Users/Noah/.vscode/Stromnetze/results_60_pv_mit_last/res_line/loading_percent.xlsx',
+        f'/results_alle_pv_ohne_last/res_line/loading_percent.xlsx',
         index_col=0,
     )
 
@@ -341,7 +341,7 @@ def colorplot(n):
     fig.show()
 
 #Szenario Möglichekeiten: "status_quo", "alle_pv_mit_last", "alle_pv_ohne_last", "60_pv_ohne_last", 60_pv_mit_last
-Szenario = ["alle_pv_mit_last" ]#, "alle_pv_mit_last", "alle_pv_ohne_last", "60_pv_ohne_last", "60_pv_mit_last"]
+Szenario = ["60_pv_ohne_last" ]#, "alle_pv_mit_last", "alle_pv_ohne_last", "60_pv_ohne_last", "60_pv_mit_last"]
 for x in Szenario:
     SZENARIO= x
     if SZENARIO == "status_quo":
@@ -364,16 +364,17 @@ for x in Szenario:
         pv_mapping = {**pv_istzustand, **pv_geplant}
         lasten_aktiv = True
         pv_faktor = 0.6
+    
     for name, info in pv_mapping.items():
         pv_df = pd.read_excel(info["file"])
         werte = pv_df["Erzeugung"]
-    if werte.dtype == object:
-        werte = werte.astype(str).str.replace(",", ".", regex=False)
-        werte = pd.to_numeric(werte, errors="coerce")
+        if werte.dtype == object:
+            werte = werte.astype(str).str.replace(",", ".", regex=False)
+            werte = pd.to_numeric(werte, errors="coerce")
 
-    # Edeka-PV gleichmäßig auf 4 Stränge aufteilen
-    if name.startswith("pv_edeka"):
-        werte = werte / 4
+        # Edeka-PV gleichmäßig auf 4 Stränge aufteilen
+        if name.startswith("pv_edeka"):
+            werte = werte / 4
 
         Verbrauch_Haushalt[name] = werte.values[:8760] * pv_faktor 
 
@@ -398,6 +399,7 @@ for x in Szenario:
     pp.runpp(n)
     ow = create_output_writer(n, timesteps, output_dir=output_dir)
     run_timeseries(n, timesteps)
+
     x_label = "time step"
     zeitindex = pd.date_range("2021-01-01", periods=8760, freq="h")
     # plot is a module; call its plot function
