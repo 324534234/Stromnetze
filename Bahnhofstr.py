@@ -4,8 +4,6 @@ import pandapower.plotting as plot
 from pandapower.timeseries import DFData, OutputWriter, run_timeseries
 from pandapower.control import ConstControl
 from demandlib import bdew #für Standardlastprofile
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 import numpy as np            
 import os
 
@@ -28,68 +26,66 @@ Elektroladen_slp = slp.get_scaled_power_profiles({"g4": 15000}).resample("h").me
 Handwerkladen_slp = slp.get_scaled_power_profiles({"g3": 105000}).resample("h").mean()
 
 #create modell
-n = pp.create_empty_network()
-#create buses
-b1 = pp.create_bus(n, vn_kv=20., name="Bus 1", type="b")
-b2 = pp.create_bus(n, vn_kv=0.4, name="Bus LV0", type="b")
-#Transformator 20kv / 1.0kv
-trafo1 = pp.create_transformer(n, hv_bus=b1, lv_bus=b2, std_type="0.4 MVA 20/0.4 kV", name="Trafo")
-#Abhaenge LV Netz von links nach rechts aufbauen
-buses = {}
-def extraction(df, Kabelnummer: int):
-    #df = df.loc[[Kabelnummer]]
-    for i in range(len(df)):
-        buses[f"Bus_LV{Kabelnummer}.{i}"] = pp.create_bus(n, name=f"busLV{Kabelnummer}.{i}", vn_kv=0.4, type="n")
-    return n
+def build_network(lines):
+    n = pp.create_empty_network()
+    #create buses
+    b1 = pp.create_bus(n, vn_kv=20., name="Bus 1", type="b")
+    b2 = pp.create_bus(n, vn_kv=0.4, name="Bus LV0", type="b")
+    #Transformator 20kv / 1.0kv
+    pp.create_transformer(n, hv_bus=b1, lv_bus=b2, std_type="0.4 MVA 20/0.4 kV", name="Trafo")
+    pp.create_ext_grid(n, bus=b1, vm_pu=1.00, name="grid_connection")
+    #Abhaenge LV Netz von links nach rechts aufbauen
+    buses = {}
 
-def Line_erstellen(df, Kabelnummer: int):
-    #df = df.sort_index()
-    #neuer Index mit Zählung enumerate und row als Tuple der Zeile
-    for i, row in enumerate(df.itertuples()):
-        if i == 0:
-            # Erste Leitung eines geraden Kabelnummernblocks startet am LV-Bus b2 und geht auf Kabelnummer.0
-            from_bus = abzweig_start.get(Kabelnummer, b2)
-            to_bus = buses[f"Bus_LV{Kabelnummer}.{i}"]
-        #ansonsten startet der Bus bei Kabelenummer.0 und verbindet sich mit 2.1
-        else:
-            from_bus = buses[f"Bus_LV{Kabelnummer}.{i-1}"]
-            to_bus = buses[f"Bus_LV{Kabelnummer}.{i}"]
-        typ = row.Leitungstyp
+    def extraction(df, Kabelnummer: int):
+        #df = df.loc[[Kabelnummer]]
+        for i in range(len(df)):
+            buses[f"Bus_LV{Kabelnummer}.{i}"] = pp.create_bus(n, name=f"busLV{Kabelnummer}.{i}", vn_kv=0.4, type="n")
+        return n
 
-        if typ not in n.std_types["line"]:
-            typ = "NAYY 4x150 SE"
+    def Line_erstellen(df, Kabelnummer: int):
+        #df = df.sort_index()
+        #neuer Index mit Zählung enumerate und row als Tuple der Zeile
+        for i, row in enumerate(df.itertuples()):
+            if i == 0:
+                # Erste Leitung eines geraden Kabelnummernblocks startet am LV-Bus b2 und geht auf Kabelnummer.0
+                from_bus = abzweig_start.get(Kabelnummer, b2)
+                to_bus = buses[f"Bus_LV{Kabelnummer}.{i}"]
+            #ansonsten startet der Bus bei Kabelenummer.0 und verbindet sich mit 2.1
+            else:
+                from_bus = buses[f"Bus_LV{Kabelnummer}.{i-1}"]
+                to_bus = buses[f"Bus_LV{Kabelnummer}.{i}"]
+            typ = row.Leitungstyp
 
-        laenge_km = row.Laenge / 1000
-        pp.create_line(n, from_bus=from_bus,
-                       to_bus=to_bus, length_km=laenge_km,
-                       std_type=typ, #Kabeltyp muss noch definiert werden
-                       name=f"Kabel_{Kabelnummer}_{i}")
-    return n
+            if typ not in n.std_types["line"]:
+                typ = "NAYY 4x150 SE"
 
+            laenge_km = row.Laenge / 1000
+            pp.create_line(n, from_bus=from_bus,
+                        to_bus=to_bus, length_km=laenge_km,
+                        std_type=typ, #Kabeltyp muss noch definiert werden
+                        name=f"Kabel_{Kabelnummer}_{i}")
+        
 
+    for l, group in lines.groupby(level=0):
+        extraction(group, l)
 
+    abzweig_start = {
+        111: buses["Bus_LV11.0"],  
+    }
+    
+    for l, group in lines.groupby(level=0):
+        Line_erstellen(group, l)
 
-pp.create_ext_grid(n, bus=b1, vm_pu=1.00, name="grid_connection")
-
-for l, group in lines.groupby(level=0):
-    extraction(group, l)
-
-abzweig_start = {
-    111: buses["Bus_LV11.0"],  
-}
- 
-for l, group in lines.groupby(level=0):
-    Line_erstellen(group, l)
-
-bus_info = []
-for l, group in lines.groupby(level=0):
-    for i, row in enumerate(group.itertuples()):
-        bus_name = f"busLV{l}.{i}"
-        bus_idx = n.bus[n.bus['name'] == bus_name].index[0]
-        bus_info.append({"index": bus_idx, "name": bus_name, "endpunkt": row.Endpunkt,
-                         "strang": l})  
-bus_info_df = pd.DataFrame(bus_info)  
-print(bus_info_df)
+    bus_info = []
+    for l, group in lines.groupby(level=0):
+        for i, row in enumerate(group.itertuples()):
+            bus_name = f"busLV{l}.{i}"
+            bus_idx = n.bus[n.bus['name'] == bus_name].index[0]
+            bus_info.append({"index": bus_idx, "name": bus_name, "endpunkt": row.Endpunkt,
+                            "strang": l})  
+    bus_info_df = pd.DataFrame(bus_info)  
+    return n, bus_info_df
 
 
 
@@ -147,27 +143,20 @@ pv_geplant = {
 }
  
 
-
-print(n.bus)
-#print(n.trafo)
-print(n.line)
-print(n.load)
-print(n.controller)
-
-Verbrauch_Haushalt = pd.read_excel(file_load, index_col=[0,1], skiprows=1)
-
-#Spaltennamen anpassen
-Verbrauch_Haushalt= Verbrauch_Haushalt.rename(columns=lastprofile)
-
-Verbrauch_Haushalt["baecker"] = baecker_slp.values
-Verbrauch_Haushalt["restaurant"] = restaurant_slp.values
-Verbrauch_Haushalt["edeka1"] = edeka_slp.values
-Verbrauch_Haushalt["edeka2"] = edeka_slp.values
-Verbrauch_Haushalt["edeka3"] = edeka_slp.values
-Verbrauch_Haushalt["edeka4"] = edeka_slp.values
-Verbrauch_Haushalt["doner"] = doner_slp.values
-Verbrauch_Haushalt["Elektroladen"] = Elektroladen_slp.values
-Verbrauch_Haushalt["Handwerkladen"] = Handwerkladen_slp.values
+def build_verbrauch():
+    #Frisches Verbrauchs-DataFrame aus Haushalts-Excel + SLPs bauen.
+    df = pd.read_excel(file_load, index_col=[0, 1], skiprows=1)
+    df = df.rename(columns=lastprofile)
+    df["baecker"] = baecker_slp.values
+    df["restaurant"] = restaurant_slp.values
+    df["edeka1"] = edeka_slp.values
+    df["edeka2"] = edeka_slp.values
+    df["edeka3"] = edeka_slp.values
+    df["edeka4"] = edeka_slp.values
+    df["doner"] = doner_slp.values
+    df["Elektroladen"] = Elektroladen_slp.values
+    df["Handwerkladen"] = Handwerkladen_slp.values
+    return df
 
  
 #Erstellung eines weiteren Columns bei der Blindleistung
@@ -184,9 +173,6 @@ def Daten_Anpassung(df):
     return df
 
 
-
-
-print(Verbrauch_Haushalt)
 
 
 def create_controller_load(n, df, name,i):
@@ -223,8 +209,7 @@ def create_controller_gen(n, df, name, i):
     return n
 
 
-def create_data_source(n):
-    profiles = Verbrauch_Haushalt
+def create_data_source(n, profiles):
     ds = DFData(profiles)
         #wir loopen über alle Load_buses und gehen jeden durch, falls der Name von einem Bus übereinstimmt mit load_bus_mapping
         #dann wird ein controller erstellt
@@ -254,96 +239,9 @@ def create_output_writer(n, timesteps, output_dir):
     return ow
 
 
-
-def plots(output_dir, x_label):
-    # voltage results
-    vm_pu_file = os.path.join(output_dir, "res_bus", "vm_pu.xlsx")
-    vm_pu = pd.read_excel(vm_pu_file, index_col=0)
-    vm_pu.plot(label="vm_pu")
-    plt.xlabel(x_label)
-    plt.ylabel("voltage mag. [p.u.]")
-    plt.title("Voltage Magnitude")
-    plt.grid()
-    plt.show()
-
-    # line loading results
-    ll_file = os.path.join(output_dir, "res_line", "loading_percent.xlsx")
-    line_loading = pd.read_excel(ll_file, index_col=0)
-    line_loading.plot(label="line_loading")
-    plt.xlabel(x_label)
-    plt.ylabel("line loading [%]")
-    plt.title("Line Loading")
-    plt.grid()
-    plt.show()
-
-    # load results
-    load_file = os.path.join(output_dir, "res_load", "p_mw.xlsx")
-    load = pd.read_excel(load_file, index_col=0)
-    load.plot(label="load")
-    plt.xlabel(x_label)
-    plt.ylabel("P [MW]")
-    plt.grid()
-    plt.show()
-
-    # generation results [p_mw]
-    gen_file = os.path.join(output_dir, "res_sgen", "p_mw.xlsx")
-    gen = pd.read_excel(gen_file, index_col=0)
-    gen.plot(label="gen")
-    plt.xlabel(x_label)
-    plt.ylabel("P [MW]")
-    plt.grid()
-    plt.show()
-
-    # generation results [q_mvar]
-    gen_file = os.path.join(output_dir, "res_sgen", "q_mvar.xlsx")
-    gen = pd.read_excel(gen_file, index_col=0)
-    gen.plot(label="gen")
-    plt.xlabel(x_label)
-    plt.ylabel("Q [Mvar]")
-    plt.grid()
-    plt.show()
-
-def colorplot(n):
-    import plotly.express as px
-    df = pd.read_excel(
-        f'/results_alle_pv_ohne_last/res_line/loading_percent.xlsx',
-        index_col=0,
-    )
-
-    # Make the index human-readable (hourly timestamps)
-    df.index = pd.date_range('2021-01-01', periods=len(df), freq='h')
-
-    # Optional: use meaningful line names if available from the network
-    if 'n' in globals() and hasattr(n, 'line') and not n.line.empty:
-        line_names = n.line['name'].tolist()
-        if len(line_names) == len(df.columns):
-            df.columns = line_names
-        else:
-            df.columns = [f'Leitung {col}' for col in df.columns]
-    else:
-        df.columns = [f'Leitung {col}' for col in df.columns]
-
-    fig = px.imshow(
-        df,
-        color_continuous_scale='RdYlGn_r',
-        origin='lower',
-        aspect='auto',
-        labels={'x': 'Leitung', 'y': 'Zeit', 'color': 'Loading [%]'},
-        title='Leitungsbelastung über die Zeit',
-    )
-
-    fig.update_layout(
-        width=1500,
-        height=700,
-        margin=dict(l=20, r=20, t=50, b=20),
-    )
-    fig.update_xaxes(tickangle=-45)
-    fig.show()
-
 #Szenario Möglichekeiten: "status_quo", "alle_pv_mit_last", "alle_pv_ohne_last", "60_pv_ohne_last", 60_pv_mit_last
-Szenario = ["60_pv_ohne_last" ]#, "alle_pv_mit_last", "alle_pv_ohne_last", "60_pv_ohne_last", "60_pv_mit_last"]
-for x in Szenario:
-    SZENARIO= x
+Szenario = ["status_quo" , "alle_pv_mit_last", "alle_pv_ohne_last", "60_pv_ohne_last", "60_pv_mit_last"]
+for SZENARIO in Szenario:
     if SZENARIO == "status_quo":
         pv_mapping = pv_istzustand
         lasten_aktiv = True
@@ -365,12 +263,14 @@ for x in Szenario:
         lasten_aktiv = True
         pv_faktor = 0.6
     
+    Verbrauch_Haushalt = build_verbrauch()
+
     for name, info in pv_mapping.items():
         pv_df = pd.read_excel(info["file"])
         werte = pv_df["Erzeugung"]
         if werte.dtype == object:
             werte = werte.astype(str).str.replace(",", ".", regex=False)
-            werte = pd.to_numeric(werte, errors="coerce")
+        werte = pd.to_numeric(werte, errors="coerce")
 
         # Edeka-PV gleichmäßig auf 4 Stränge aufteilen
         if name.startswith("pv_edeka"):
@@ -378,7 +278,11 @@ for x in Szenario:
 
         Verbrauch_Haushalt[name] = werte.values[:8760] * pv_faktor 
 
+    Verbrauch_Haushalt = Daten_Anpassung(df=Verbrauch_Haushalt)
     
+    n, bus_info_df = build_network(lines)
+    print(bus_info_df)
+
     #Load für alle Lastprofile erstellen an die entsprechenden Buses
     for key, value in load_bus_mapping.items():
         pp.create_load(n, bus=value, p_mw=0.1, q_mvar=0.0, name=key)
@@ -386,25 +290,18 @@ for x in Szenario:
     for name, info in pv_mapping.items():
         pp.create_sgen(n, bus=info["bus"], p_mw=0.0, q_mvar=0.0, name=name)
 
-    Verbrauch_Haushalt = Daten_Anpassung(df=Verbrauch_Haushalt)
+    if not lasten_aktiv:
+        n.load['in_service'] = False
+
+    n = create_data_source(n, Verbrauch_Haushalt)
     # Erstelle ein Load-Element pro Haushalt, das später mit dem Zeitreihenprofil gesteuert wird.
     output_dir = f"results_{SZENARIO}" 
     os.makedirs(output_dir, exist_ok=True) 
 
     timesteps = range(len(Verbrauch_Haushalt.index))
-    n = create_data_source(n)
-    if not lasten_aktiv:
-        n.load['in_service'] = False
-
     pp.runpp(n)
     ow = create_output_writer(n, timesteps, output_dir=output_dir)
     run_timeseries(n, timesteps)
-
-    x_label = "time step"
-    zeitindex = pd.date_range("2021-01-01", periods=8760, freq="h")
-    # plot is a module; call its plot function
-    plots(output_dir= output_dir, x_label=x_label)
-    colorplot(n=n)
 
     
     
