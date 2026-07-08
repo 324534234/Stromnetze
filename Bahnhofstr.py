@@ -119,28 +119,33 @@ load_bus_mapping = {
 }
 
 pv_istzustand = {
-    "pv_Haushalt_2":      {"file": "PV/ninja_pv_istzustand_BHS36.xlsx",    "bus": 7},
-    "pv_edeka1":          {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 14},
-    "pv_edeka2":          {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 15},
-    "pv_edeka3":          {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 16},
-    "pv_edeka4":          {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 17},
-    "pv_Handwerkladen":   {"file": "PV/ninja_pv_istzustand_BHS36a.xlsx",   "bus": 8},
+    "pv_Haushalt_2":    {"file": "PV/ninja_pv_istzustand_BHS36.xlsx",    "bus": 7,  "kwpeak": 0.6},
+    "pv_edeka1":        {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 14, "kwpeak": 170.03/4},
+    "pv_edeka2":        {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 15, "kwpeak": 170.03/4},
+    "pv_edeka3":        {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 16, "kwpeak": 170.03/4},
+    "pv_edeka4":        {"file": "PV/ninja_pv_istzustand_BHS29-33.xlsx", "bus": 17, "kwpeak": 170.03/4},
+    "pv_Handwerkladen": {"file": "PV/ninja_pv_istzustand_BHS36a.xlsx",   "bus": 8,  "kwpeak": 27},
 }
- 
+
 pv_geplant = {
-    "pv_Haushalt_1": {"file": "PV/ninja_pv_BHS35.xlsx", "bus": 3},
-    "pv_Haushalt_3_ost": {"file": "PV/ninja_pv_BHS27a_Ost.xlsx", "bus": 25},
-    "pv_Haushalt_3_west": {"file": "PV/ninja_pv_BHS27a_West.xlsx", "bus": 25},
-    "pv_Haushalt_4_süd": {"file": "PV/ninja_pv_BHS25_süd.xlsx", "bus": 19},
-    "pv_Haushalt_4_nord": {"file": "PV/ninja_pv_BHS25_nord.xlsx", "bus": 19},
-    "pv_baecker_ost": {"file": "PV/ninja_pv_BHS27_Ost.xlsx", "bus": 24},
-    "pv_baecker_west": {"file": "PV/ninja_pv_BHS27_West.xlsx", "bus": 24},
-    "pv_restaurant_nord": {"file": "PV/ninja_pv_BHS38_Nord.xlsx", "bus": 9},
-    "pv_restaurant_süd": {"file": "PV/ninja_pv_BHS38_Süd.xlsx", "bus": 9},
-    "pv_doner_ost": {"file": "PV/ninja_pv_BHS32_Ost.xlsx", "bus": 5},
-    "pv_doner_west": {"file": "PV/ninja_pv_BHS32_West.xlsx", "bus": 5},
-    "pv_Elektroladen": {"file": "PV/ninja_pv_BHS34.xlsx", "bus": 6},
+    "pv_Haushalt_1":      {"file": "PV/ninja_pv_BHS35.xlsx",       "bus": 3,  "kwpeak": 24.66},
+    "pv_Haushalt_3_ost":  {"file": "PV/ninja_pv_BHS27a_Ost.xlsx",  "bus": 25, "kwpeak": 19.06},
+    "pv_Haushalt_3_west": {"file": "PV/ninja_pv_BHS27a_West.xlsx", "bus": 25, "kwpeak": 19.06},
+    "pv_Haushalt_4_süd":  {"file": "PV/ninja_pv_BHS25_süd.xlsx",   "bus": 19, "kwpeak": 10.75},
+    "pv_Haushalt_4_nord": {"file": "PV/ninja_pv_BHS25_nord.xlsx",  "bus": 19, "kwpeak": 10.75},
+    "pv_baecker_ost":     {"file": "PV/ninja_pv_BHS27_Ost.xlsx",   "bus": 24, "kwpeak": 39.89},
+    "pv_baecker_west":    {"file": "PV/ninja_pv_BHS27_West.xlsx",  "bus": 24, "kwpeak": 39.89},
+    "pv_restaurant_nord": {"file": "PV/ninja_pv_BHS38_Nord.xlsx",  "bus": 9,  "kwpeak": 23.52},  
+    "pv_restaurant_süd":  {"file": "PV/ninja_pv_BHS38_Süd.xlsx",   "bus": 9,  "kwpeak": 22.89},
+    "pv_doner_ost":       {"file": "PV/ninja_pv_BHS32_Ost.xlsx",   "bus": 5,  "kwpeak": 56.01/2},
+    "pv_doner_west":      {"file": "PV/ninja_pv_BHS32_West.xlsx",  "bus": 5,  "kwpeak": 56.01/2},
+    "pv_Elektroladen":    {"file": "PV/ninja_pv_BHS34.xlsx",       "bus": 6,  "kwpeak": 42.64}, 
+    "pv_Haushalt_6_ost":  {"file": "PV/ninja_pv_BHS21_ost.xlsx",   "bus": 21, "kwpeak": 14.46},
+    "pv_Haushalt_6_west": {"file": "PV/ninja_pv_BHS21_west.xlsx",  "bus": 21, "kwpeak": 14.44},
+    "pv_Haushalt_5_nord": {"file": "PV/ninja_pv_BHS23_nord.xlsx",  "bus": 20, "kwpeak": 14.59},
+    "pv_Haushalt_5_süd":  {"file": "PV/ninja_pv_BHS23_süd.xlsx",   "bus": 20, "kwpeak": 14.59},
 }
+
  
 
 def build_verbrauch():
@@ -238,30 +243,66 @@ def create_output_writer(n, timesteps, output_dir):
     ow.log_variable('res_trafo', 'p_hv_mw') 
     return ow
 
+optimierung_faktoren = {
+    # --- Istzustand ---
+    "pv_Haushalt_2":      1.0,  
+    "pv_edeka1":          1.0,
+    "pv_edeka2":          1.0,
+    "pv_edeka3":          1.0,
+    "pv_edeka4":          1.0,
+    "pv_Handwerkladen":   1.0,  
+    # --- Geplant ---
+    "pv_Haushalt_1":      0.80,
+    "pv_Haushalt_3_ost":  0.80,  
+    "pv_Haushalt_3_west": 0.80,  
+    "pv_Haushalt_4_süd":  0.80,  
+    "pv_Haushalt_4_nord": 0.80,  
+    "pv_baecker_ost":     0.80,  
+    "pv_baecker_west":    0.80,  
+    "pv_restaurant_nord": 0.80,  
+    "pv_restaurant_süd":  0.80,  
+    "pv_doner_ost":       0.80,  
+    "pv_doner_west":      0.80,  
+    "pv_Elektroladen":    0.80, 
+    "pv_Haushalt_6_ost":  0.80,  
+    "pv_Haushalt_6_west": 0.80,  
+    "pv_Haushalt_5_nord": 0.80,  
+    "pv_Haushalt_5_süd":  0.80,  
+}
 
 #Szenario Möglichekeiten: "status_quo", "alle_pv_mit_last", "alle_pv_ohne_last", "60_pv_ohne_last", 60_pv_mit_last
-Szenario = ["status_quo" , "alle_pv_mit_last", "alle_pv_ohne_last", "60_pv_ohne_last", "60_pv_mit_last"]
+Szenario = ["pv_ohne_last_optimiert"]
 for SZENARIO in Szenario:
     if SZENARIO == "status_quo":
         pv_mapping = pv_istzustand
         lasten_aktiv = True
-        pv_faktor = 1.0
+        kappung = False
+        faktoren = {}
     elif SZENARIO == "alle_pv_mit_last":
         pv_mapping = {**pv_istzustand, **pv_geplant}
         lasten_aktiv = True
-        pv_faktor = 1.0
+        kappung = False
+        faktoren = {}
     elif SZENARIO == "alle_pv_ohne_last":
         pv_mapping = {**pv_istzustand, **pv_geplant}
         lasten_aktiv = False
-        pv_faktor = 1.0
+        kappung = False
+        faktoren = {}
     elif SZENARIO == "60_pv_ohne_last":
         pv_mapping = {**pv_istzustand, **pv_geplant}
         lasten_aktiv = False
-        pv_faktor = 0.6
+        kappung = True
+        faktoren = {}
     elif SZENARIO == "60_pv_mit_last":
         pv_mapping = {**pv_istzustand, **pv_geplant}
         lasten_aktiv = True
-        pv_faktor = 0.6
+        kappung = True
+        faktoren = {}
+    elif SZENARIO == "pv_ohne_last_optimiert":
+        pv_mapping = {**pv_istzustand, **pv_geplant}
+        lasten_aktiv = False
+        kappung = True
+        faktoren = optimierung_faktoren
     
     Verbrauch_Haushalt = build_verbrauch()
 
@@ -276,7 +317,16 @@ for SZENARIO in Szenario:
         if name.startswith("pv_edeka"):
             werte = werte / 4
 
-        Verbrauch_Haushalt[name] = werte.values[:8760] * pv_faktor 
+        size_faktor = faktoren.get(name, 1.0)
+        werte = werte * size_faktor
+        kwpeak_effektiv = info["kwpeak"] * size_faktor
+
+        # 60%-Kappung: alles über 60% der Peak-Leistung wird abgeschnitten
+        if kappung:
+            grenze = 0.6 * kwpeak_effektiv
+            werte = werte.clip(upper=grenze)
+
+        Verbrauch_Haushalt[name] = werte.values[:8760]
 
     Verbrauch_Haushalt = Daten_Anpassung(df=Verbrauch_Haushalt)
     

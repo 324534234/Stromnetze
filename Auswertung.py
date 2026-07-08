@@ -12,6 +12,7 @@ SZENARIEN = [
     "alle_pv_ohne_last",
     "60_pv_mit_last",
     "60_pv_ohne_last",
+    "pv_ohne_last_optimiert"
 ]
 
 # Nur Szenarien auswerten, deren Ordner tatsächlich existiert
