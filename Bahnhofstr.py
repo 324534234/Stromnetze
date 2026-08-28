@@ -1,13 +1,9 @@
 import pandas as pd
 import pandapower as pp
-import pandapower.plotting as plot
 from pandapower.timeseries import DFData, OutputWriter, run_timeseries
 from pandapower.control import ConstControl
-from demandlib import bdew #für Standardlastprofile
-import numpy as np            
+from demandlib import bdew #für Standardlastprofile          
 import os
-
-
 
 file_load = "Lastprofile.xlsx"
 file_lines = "Stromnetze_Auslegungsdaten - Kopie.xlsx"
@@ -38,13 +34,11 @@ def build_network(lines):
     buses = {}
 
     def extraction(df, Kabelnummer: int):
-        #df = df.loc[[Kabelnummer]]
         for i in range(len(df)):
             buses[f"Bus_LV{Kabelnummer}.{i}"] = pp.create_bus(n, name=f"busLV{Kabelnummer}.{i}", vn_kv=0.4, type="n")
         return n
 
-    def Line_erstellen(df, Kabelnummer: int):
-        #df = df.sort_index()
+    def line_erstellen(df, Kabelnummer: int):
         #neuer Index mit Zählung enumerate und row als Tuple der Zeile
         for i, row in enumerate(df.itertuples()):
             if i == 0:
@@ -63,7 +57,7 @@ def build_network(lines):
             laenge_km = row.Laenge / 1000
             pp.create_line(n, from_bus=from_bus,
                         to_bus=to_bus, length_km=laenge_km,
-                        std_type=typ, #Kabeltyp muss noch definiert werden
+                        std_type=typ, 
                         name=f"Kabel_{Kabelnummer}_{i}")
         
 
@@ -75,7 +69,7 @@ def build_network(lines):
     }
     
     for l, group in lines.groupby(level=0):
-        Line_erstellen(group, l)
+        line_erstellen(group, l)
 
     bus_info = []
     for l, group in lines.groupby(level=0):
@@ -147,7 +141,6 @@ pv_geplant = {
 }
 
  
-
 def build_verbrauch():
     #Frisches Verbrauchs-DataFrame aus Haushalts-Excel + SLPs bauen.
     df = pd.read_excel(file_load, index_col=[0, 1], skiprows=1)
@@ -165,7 +158,7 @@ def build_verbrauch():
 
  
 #Erstellung eines weiteren Columns bei der Blindleistung
-def Daten_Anpassung(df):
+def daten_anpassung(df):
     for col in list(df.columns):
         if col.startswith("pv_"):
             df[f"Blindleistung_{col}"] = 0.0
@@ -178,8 +171,6 @@ def Daten_Anpassung(df):
     return df
 
 
-
-
 def create_controller_load(n, df, name,i):
     #einen Controller für die Variable p_mw
     ConstControl(n, 
@@ -188,7 +179,7 @@ def create_controller_load(n, df, name,i):
                 element_index=[i],
                  data_source=df, 
                  profile_name=[name],)
-    #einen Controller für die Q_mvar - muss noch weiter angepasst werden
+    #einen Controller für die Q_mvar 
     ConstControl(n,
                  element='load',
                  variable='q_mvar',
@@ -196,7 +187,6 @@ def create_controller_load(n, df, name,i):
                  data_source=df,
                  profile_name=[f"Blindleistung_{name}"],
                  )
-    return n
 
 def create_controller_gen(n, df, name, i):
     ConstControl(n,
@@ -211,7 +201,6 @@ def create_controller_gen(n, df, name, i):
                  element_index=[i],
                  data_source=df,
                  profile_name=[f"Blindleistung_{name}"])
-    return n
 
 
 def create_data_source(n, profiles):
@@ -225,9 +214,6 @@ def create_data_source(n, profiles):
     for i, sgen in n.sgen.iterrows():
         if sgen['name'] in profiles.columns:
             create_controller_gen(n, ds, sgen['name'], i)
-    return  n
-
-
 
 
 def create_output_writer(n, timesteps, output_dir):
@@ -252,22 +238,22 @@ optimierung_faktoren = {
     "pv_edeka4":          1.0,
     "pv_Handwerkladen":   1.0,  
     # --- Geplant ---
-    "pv_Haushalt_1":      0.85,
-    "pv_Haushalt_3_ost":  0.85,  
-    "pv_Haushalt_3_west": 0.85,  
-    "pv_Haushalt_4_süd":  0.85,  
-    "pv_Haushalt_4_nord": 0.85,  
-    "pv_baecker_ost":     0.85,  
-    "pv_baecker_west":    0.85,  
-    "pv_restaurant_nord": 0.85,  
-    "pv_restaurant_süd":  0.85,  
-    "pv_doner_ost":       0.85,  
-    "pv_doner_west":      0.85,  
-    "pv_Elektroladen":    0.85, 
-    "pv_Haushalt_6_ost":  0.85,  
-    "pv_Haushalt_6_west": 0.85,  
-    "pv_Haushalt_5_nord": 0.85,  
-    "pv_Haushalt_5_süd":  0.85,  
+    "pv_Haushalt_1":      0.80,
+    "pv_Haushalt_3_ost":  0.80,  
+    "pv_Haushalt_3_west": 0.80,  
+    "pv_Haushalt_4_süd":  0.80,  
+    "pv_Haushalt_4_nord": 0.80,  
+    "pv_baecker_ost":     0.80,  
+    "pv_baecker_west":    0.80,  
+    "pv_restaurant_nord": 0.80,  
+    "pv_restaurant_süd":  0.80,  
+    "pv_doner_ost":       0.80,  
+    "pv_doner_west":      0.80,  
+    "pv_Elektroladen":    0.80, 
+    "pv_Haushalt_6_ost":  0.80,  
+    "pv_Haushalt_6_west": 0.80,  
+    "pv_Haushalt_5_nord": 0.80,  
+    "pv_Haushalt_5_süd":  0.80,  
 }
 
 #Szenario Möglichekeiten: "status_quo", "alle_pv_mit_last", "alle_pv_ohne_last", "60_pv_ohne_last", 60_pv_mit_last
@@ -328,14 +314,14 @@ for SZENARIO in Szenario:
 
         Verbrauch_Haushalt[name] = werte.values[:8760]
 
-    Verbrauch_Haushalt = Daten_Anpassung(df=Verbrauch_Haushalt)
+    Verbrauch_Haushalt = daten_anpassung(df=Verbrauch_Haushalt)
     
     n, bus_info_df = build_network(lines)
-    print(bus_info_df)
 
     #Load für alle Lastprofile erstellen an die entsprechenden Buses
     for key, value in load_bus_mapping.items():
-        pp.create_load(n, bus=value, p_mw=0.1, q_mvar=0.0, name=key)
+        # p_mw ist nur ein Platzhalter, wird durch den Zeitreihen-Controller überschrieben
+        pp.create_load(n, bus=value, p_mw=0.0, q_mvar=0.0, name=key)
 
     for name, info in pv_mapping.items():
         pp.create_sgen(n, bus=info["bus"], p_mw=0.0, q_mvar=0.0, name=name)
@@ -343,7 +329,7 @@ for SZENARIO in Szenario:
     if not lasten_aktiv:
         n.load['in_service'] = False
 
-    n = create_data_source(n, Verbrauch_Haushalt)
+    create_data_source(n, Verbrauch_Haushalt)
     # Erstelle ein Load-Element pro Haushalt, das später mit dem Zeitreihenprofil gesteuert wird.
     output_dir = f"results_{SZENARIO}" 
     os.makedirs(output_dir, exist_ok=True) 
