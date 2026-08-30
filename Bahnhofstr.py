@@ -21,7 +21,7 @@ doner_slp = slp.get_scaled_power_profiles({"g4": 15000}).resample("h").mean()
 Elektroladen_slp = slp.get_scaled_power_profiles({"g4": 15000}).resample("h").mean()
 Handwerkladen_slp = slp.get_scaled_power_profiles({"g3": 105000}).resample("h").mean()
 
-#create modell
+#Netzwerkmodell wird mithilfe von Loops erstellt. Hierbei wird eine Excel eingelsen, die die Eigenschaften enthalten.
 def build_network(lines):
     n = pp.create_empty_network()
     #create buses
@@ -83,7 +83,7 @@ def build_network(lines):
 
 
 
-#Umbennen der Columnsudn anschließend einfügen an die Buses
+#Umbennen der Columns und anschließend einfügen an die Buses
 lastprofile = {
     1:"Haushalt_1",
     2:"Haushalt_2",
@@ -170,7 +170,7 @@ def daten_anpassung(df):
         df[col] = df[col] / 1000
     return df
 
-
+#Hier wird die Zeitreihe für die Last und den Generator eingelsen. Für jeden Zeitschritt wir die entsprechende Variable überschrieben.
 def create_controller_load(n, df, name,i):
     #einen Controller für die Variable p_mw
     ConstControl(n, 
@@ -215,10 +215,9 @@ def create_data_source(n, profiles):
         if sgen['name'] in profiles.columns:
             create_controller_gen(n, ds, sgen['name'], i)
 
-
+#Daten Werden gespeichert und an den Writer übergeben
 def create_output_writer(n, timesteps, output_dir):
     ow = OutputWriter(n, timesteps, output_path=output_dir, output_file_type=".xlsx", log_variables=[])
-    # these variables are saved to the harddisk after / during the time series loop
     ow.log_variable('res_load', 'p_mw')
     ow.log_variable('res_bus', 'vm_pu')
     ow.log_variable('res_line', 'loading_percent')
